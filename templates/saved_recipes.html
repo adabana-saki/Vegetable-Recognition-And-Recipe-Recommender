@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>保存したレシピ - 野菜認識アプリ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: #f5f7fa;
+            padding-top: 60px;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .recipe-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.3s;
+            margin-bottom: 20px;
+        }
+        .recipe-card:hover {
+            transform: translateY(-5px);
+        }
+        .recipe-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .recipe-content {
+            padding: 20px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        .empty-state i {
+            font-size: 80px;
+            color: #d0d0d0;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('upload_file') }}">野菜認識アプリ</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('upload_file') }}">ホーム</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('auth.saved_recipes') }}">保存したレシピ</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.profile') }}">プロフィール</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.logout') }}">ログアウト</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h2 class="mb-4"><i class="fas fa-heart text-danger"></i> 保存したレシピ</h2>
+
+        {% if recipes %}
+            <div class="row">
+                {% for recipe in recipes %}
+                    <div class="col-md-4">
+                        <div class="recipe-card">
+                            <img src="{{ recipe.recipe_image_url or '../static/HTMLmaterial/NoImage.jpg' }}"
+                                 alt="{{ recipe.recipe_title }}"
+                                 class="recipe-image">
+                            <div class="recipe-content">
+                                <h5>{{ recipe.recipe_title }}</h5>
+                                <p class="text-muted small">
+                                    <i class="far fa-clock"></i> 保存日: {{ recipe.saved_at.strftime('%Y/%m/%d') }}
+                                </p>
+                                <a href="{{ url_for('output', value=recipe.recipe_id) }}"
+                                   class="btn btn-primary btn-sm">
+                                    <i class="fas fa-eye"></i> レシピを見る
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="far fa-heart"></i>
+                <h3 class="text-muted">保存したレシピがありません</h3>
+                <p class="text-muted">気に入ったレシピを見つけたら、ハートボタンで保存しましょう！</p>
+                <a href="{{ url_for('upload_file') }}" class="btn btn-primary mt-3">
+                    <i class="fas fa-search"></i> レシピを探す
+                </a>
+            </div>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('upload_file') }}" class="btn btn-secondary">
+                <i class="fas fa-home"></i> ホームに戻る
+            </a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -7,57 +7,40 @@ import pandas as pd
 import requests
 import six
 import tensorflow as tf
-from flask import Flask, render_template, request, session, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, session
 from flask_bootstrap import Bootstrap
-from flask_login import LoginManager, login_required, current_user
+#from google.cloud import translate_v2 as translate
 from PIL import Image
 from bs4 import BeautifulSoup
 
-# 自作モジュール
-from models import db, User, SavedRecipe
-from auth import auth_bp
-from payment import payment_bp
-from config import Config
 
-
-# モデルとデータ読み込み
 with open('veg20.csv') as f:
     sclass = f.readlines()
 
 model = tf.keras.models.load_model('model_20.h5')
 
-# Flaskアプリ初期化
 app = Flask(__name__, static_folder='static')
-app.config.from_object(Config)
-
-# 拡張機能の初期化
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r"gKey.json"
 bootstrap = Bootstrap(app)
-db.init_app(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'auth.login'
-login_manager.login_message = 'このページにアクセスするにはログインが必要です。'
-
-# Blueprintの登録
-app.register_blueprint(auth_bp, url_prefix='/auth')
-app.register_blueprint(payment_bp, url_prefix='/payment')
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
 
 def get_soup(url):
     response = requests.get(url, timeout=10)
     return BeautifulSoup(response.text, 'html.parser')
 
+# def translate_text(target, text):
+#     translate_client = translate.Client()
+#     if isinstance(text, six.binary_type):
+#         text = text.decode("utf-8_sig")
+#     result = translate_client.translate(text, target_language=target)
+#     return result["translatedText"]
 
 def process_page1(url, recipe_id):
     soup = get_soup(url)
 
     title_elem = soup.find(class_="recipe-title-and-myfoder")
     title = title_elem.find('h1').text.strip() if title_elem.find('h1') else None
+    #title = translate_text("en", title)
 
     pic_elem = soup.find(class_="published")
     img_tags = pic_elem.find_all('img')
@@ -65,7 +48,6 @@ def process_page1(url, recipe_id):
 
     items = {"recipe_id": recipe_id, "dish_img_path": img_url, "title": title}
     return items
-
 
 def process_page2(url):
     result_dict = []
@@ -75,19 +57,22 @@ def process_page2(url):
 
     title_elem = soup.find(class_="recipe-title-and-myfoder")
     title = title_elem.find('h1').text.strip() if title_elem.find('h1') else None
+    #title = translate_text("en", title)
     result_dict.append({'title': title})
 
     text_elem = soup.find('div', class_='description_text')
     text = text_elem.text.strip() if text_elem else None
+    #text = translate_text("en", text)
     result_dict.append({'text': text})
-
+    
     img_elem = soup.find(class_="published")
     img_tags = img_elem.find_all('img')
     img_url = urljoin(url, img_tags[0]['src']) if img_tags else "../static/HTMLmaterial/NoImage.jpg"
     result_dict.append({'dish_img_path': img_url})
-
+    
     content_elem = soup.find(class_="content")
     result_text = ''.join(span.get_text(strip=True) for span in content_elem.find_all('span'))
+    #result_text = translate_text("en", result_text)
     result_dict.append({'result_text': result_text})
 
     name_elements = soup.find_all('span', class_='name')
@@ -97,6 +82,8 @@ def process_page2(url):
         material = name_element.text.strip()
         quantity = quantity_element.text.strip()
         items.append({'material': material, 'quantity': quantity})
+        #material = translate_text("en", name_element.text.strip())
+        #quantity = translate_text("en", quantity_element.text.strip())
 
     ol_element = soup.find('ol', class_='steps_wrapper')
     li_elements = ol_element.find_all('li')
@@ -105,14 +92,15 @@ def process_page2(url):
         img_url = urljoin(url, img_tags[0]['src']) if img_tags else "../static/HTMLmaterial/NoImage.jpg"
         exps = li.find_all('p')
         exp = exps[0].text.strip() if exps else None
+        #exp = translate_text("en", exps[0].text.strip()) if exps else None
         orders.append({'img': img_url, 'exp': exp})
 
     kotu_elem = soup.find('div', class_='text_content')
     kotu_text = kotu_elem.text.strip() if kotu_elem else None
+    #kotu_text = translate_text("en", kotu_elem.text.strip()) if kotu_elem else None
     result_dict.append({'kotu_text': kotu_text})
 
     return result_dict, items, orders
-
 
 def search_recipes(df, vegetables):
     df_lower = df.apply(lambda x: x.lower() if isinstance(x, str) else x)
@@ -121,70 +109,21 @@ def search_recipes(df, vegetables):
         lambda row: all(veg in row.values for veg in vegetables_lower), axis=1)]
     return matching_recipes['recipe_id'].tolist()
 
-
 def alpha(text):
     return re.sub(r'^[\d,]+','', text)
-
-
-def generate_affiliate_links(ingredients):
-    """材料からアフィリエイトリンクを生成"""
-    affiliate_links = []
-
-    for ingredient in ingredients[:3]:  # 最初の3つの材料のみ
-        material = ingredient.get('material', '')
-        if Config.AFFILIATE_LINKS['amazon']['enabled']:
-            amazon_url = Config.AFFILIATE_LINKS['amazon']['base_url'].format(
-                keyword=material,
-                tag=Config.AFFILIATE_LINKS['amazon']['tag']
-            )
-            affiliate_links.append({
-                'platform': 'Amazon',
-                'material': material,
-                'url': amazon_url
-            })
-
-        if Config.AFFILIATE_LINKS['rakuten']['enabled']:
-            rakuten_url = Config.AFFILIATE_LINKS['rakuten']['base_url'].format(
-                keyword=material
-            )
-            affiliate_links.append({
-                'platform': '楽天市場',
-                'material': material,
-                'url': rakuten_url
-            })
-
-    return affiliate_links
-
 
 @app.route('/')
 def upload_file():
     session['items'] = []
     session['veg_list'] = []
     vegTypes = [alpha(line).strip().capitalize() for line in sclass]
-
-    # ユーザー情報をテンプレートに渡す
-    user_info = None
-    if current_user.is_authenticated:
-        user_info = {
-            'username': current_user.username,
-            'is_premium': current_user.is_premium,
-            'remaining_uses': current_user.get_remaining_uses()
-        }
-
-    return render_template('main.html', vegTypes=vegTypes, user_info=user_info)
-
+    return render_template('main.html',vegTypes = vegTypes)
 
 @app.route('/predict', methods=['GET', 'POST'])
-@login_required  # ログイン必須
 def predict():
     if request.method == 'GET':
         return render_template('choose.html', items=session['items'], veg_list=session['veg_list'])
-
-    # 利用制限チェック
-    if not current_user.can_use_service():
-        flash('本日の無料利用回数を超えました。プレミアム会員になると無制限で利用できます。', 'warning')
-        return redirect(url_for('payment.pricing'))
-
+    
     files = request.files.getlist('upload')
     processed_images = []
     favs_list = request.form.getlist('fav')
@@ -205,15 +144,17 @@ def predict():
         pred = model.predict(img)
         result = alpha(sclass[np.argmax(pred)]).strip()
         veg_list.append(result)
-
+        
     session['veg_list'] = ', '.join(veg_list)
 
     df = pd.read_csv('recipe_dataset.csv')
-
+    print(favs_list)
+    print(veg_list)
+    
     if favs_list:
         df = df[df["category"].isin(favs_list)]
     recipe_idss = search_recipes(df, veg_list)
-
+    
     recipe_ids = []
 
     while len(recipe_ids) < 5:
@@ -221,11 +162,12 @@ def predict():
             recipe_ids.extend(random.sample(recipe_idss, 5 - len(recipe_ids)))
         else:
             recipe_ids.extend(recipe_idss[:len(recipe_idss)])
-            if not veg_list:
-                break
+            print(recipe_ids)
             selected_veg = random.choice(veg_list)
             veg_list.remove(selected_veg)
             recipe_idss = search_recipes(df, veg_list)
+            print(veg_list)
+    print(recipe_ids)
 
     items = []
     for recipe_id in recipe_ids:
@@ -233,82 +175,16 @@ def predict():
         items.append(process_page1(load_url, recipe_id))
 
     session['items'] = items
-
-    # 利用回数をインクリメント
-    current_user.increment_usage()
-
     return render_template('choose.html', items=session['items'], veg_list=session['veg_list'])
 
-
 @app.route('/predict/recipe', methods=['GET'])
-def output():
+def output(): 
     target_id = request.args.get("value")
+    print(target_id)
     load_url = f"https://cookpad.com/recipe/{target_id}"
     recipe_dict, items, orders = process_page2(load_url)
-
-    # アフィリエイトリンクを生成
-    affiliate_links = generate_affiliate_links(items)
-
-    # レシピが保存されているかチェック
-    is_saved = False
-    if current_user.is_authenticated:
-        is_saved = SavedRecipe.query.filter_by(
-            user_id=current_user.id,
-            recipe_id=target_id
-        ).first() is not None
-
-    return render_template('recipe.html',
-                         recipe_dict=recipe_dict,
-                         items=items,
-                         orders=orders,
-                         affiliate_links=affiliate_links,
-                         recipe_id=target_id,
-                         is_saved=is_saved)
-
-
-@app.route('/save-recipe', methods=['POST'])
-@login_required
-def save_recipe():
-    """レシピを保存（お気に入り機能）"""
-    recipe_id = request.form.get('recipe_id')
-    recipe_title = request.form.get('recipe_title')
-    recipe_image_url = request.form.get('recipe_image_url')
-
-    # 既に保存されているかチェック
-    existing = SavedRecipe.query.filter_by(
-        user_id=current_user.id,
-        recipe_id=recipe_id
-    ).first()
-
-    if existing:
-        # 既に保存されている場合は削除（トグル動作）
-        db.session.delete(existing)
-        db.session.commit()
-        return jsonify({'status': 'removed', 'message': 'レシピの保存を解除しました。'})
-    else:
-        # 新規保存
-        saved_recipe = SavedRecipe(
-            user_id=current_user.id,
-            recipe_id=recipe_id,
-            recipe_title=recipe_title,
-            recipe_image_url=recipe_image_url
-        )
-        db.session.add(saved_recipe)
-        db.session.commit()
-        return jsonify({'status': 'saved', 'message': 'レシピを保存しました！'})
-
-
-# データベース初期化コマンド
-@app.cli.command()
-def init_db():
-    """データベースを初期化"""
-    db.create_all()
-    print('データベースを初期化しました。')
-
+    return render_template('recipe.html', recipe_dict=recipe_dict, items=items, orders=orders)
 
 if __name__ == '__main__':
-    # データベースディレクトリの作成
-    with app.app_context():
-        db.create_all()
-
+    app.secret_key = "123456789"
     app.run(debug=True)

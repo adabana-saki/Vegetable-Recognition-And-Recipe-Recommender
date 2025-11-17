@@ -21,6 +21,16 @@
         {% for recipe in recipe_dict %}
         <h1>{{ recipe.title }}</h1>
         {% endfor %}
+
+        <!-- お気に入りボタン -->
+        {% if current_user.is_authenticated %}
+        <div class="text-center mt-3">
+            <button id="saveRecipeBtn" class="btn btn-danger btn-lg" onclick="toggleSaveRecipe()">
+                <i class="{% if is_saved %}fas{% else %}far{% endif %} fa-heart"></i>
+                <span id="saveBtnText">{% if is_saved %}保存済み{% else %}レシピを保存{% endif %}</span>
+            </button>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Main Content -->
@@ -52,6 +62,23 @@
                         {% endfor %}
                     </tbody>
                 </table>
+
+                <!-- アフィリエイトリンク -->
+                {% if affiliate_links %}
+                <div class="mt-4 p-3" style="background: #f8f9fa; border-radius: 10px;">
+                    <h6><i class="fas fa-shopping-cart"></i> 食材を購入</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for link in affiliate_links[:6] %}
+                            <a href="{{ link.url }}" target="_blank" class="btn btn-sm btn-outline-success" rel="nofollow">
+                                <i class="fas fa-external-link-alt"></i> {{ link.platform }}で{{ link.material }}を探す
+                            </a>
+                        {% endfor %}
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        <i class="fas fa-info-circle"></i> このリンクから購入すると、サイト運営の支援になります
+                    </small>
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -86,6 +113,49 @@
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+    function toggleSaveRecipe() {
+        {% if current_user.is_authenticated %}
+        const btn = document.getElementById('saveRecipeBtn');
+        const icon = btn.querySelector('i');
+        const text = document.getElementById('saveBtnText');
+
+        // FormDataを使ってPOSTリクエスト
+        const formData = new FormData();
+        formData.append('recipe_id', '{{ recipe_id }}');
+        {% for recipe in recipe_dict %}
+        formData.append('recipe_title', '{{ recipe.title }}');
+        formData.append('recipe_image_url', '{{ recipe.dish_img_path }}');
+        {% endfor %}
+
+        fetch('{{ url_for("save_recipe") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'saved') {
+                icon.classList.remove('far');
+                icon.classList.add('fas');
+                text.textContent = '保存済み';
+                alert(data.message);
+            } else {
+                icon.classList.remove('fas');
+                icon.classList.add('far');
+                text.textContent = 'レシピを保存';
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('エラーが発生しました。');
+        });
+        {% else %}
+        window.location.href = '{{ url_for("auth.login") }}';
+        {% endif %}
+    }
+    </script>
 </body>
 
 </html>

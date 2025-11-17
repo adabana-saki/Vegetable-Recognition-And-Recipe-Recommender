@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プロフィール - 野菜認識アプリ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: #f5f7fa;
+            padding-top: 60px;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .profile-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        .premium-badge {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-block;
+        }
+        .free-badge {
+            background: #6c757d;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-block;
+        }
+        .stat-box {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .btn-upgrade {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('upload_file') }}">野菜認識アプリ</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('upload_file') }}">ホーム</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.saved_recipes') }}">保存したレシピ</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('auth.profile') }}">プロフィール</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.logout') }}">ログアウト</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <div class="profile-card">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-user-circle"></i> プロフィール</h2>
+                        {% if subscription_info.is_premium %}
+                            <span class="premium-badge"><i class="fas fa-crown"></i> プレミアム会員</span>
+                        {% else %}
+                            <span class="free-badge">無料会員</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <strong>ユーザー名:</strong> {{ user.username }}
+                    </div>
+                    <div class="mb-3">
+                        <strong>メールアドレス:</strong> {{ user.email }}
+                    </div>
+                    <div class="mb-3">
+                        <strong>登録日:</strong> {{ user.created_at.strftime('%Y年%m月%d日') }}
+                    </div>
+
+                    <hr>
+
+                    <div class="row text-center">
+                        <div class="col-md-6">
+                            <div class="stat-box">
+                                <div class="stat-number">{{ saved_recipes_count }}</div>
+                                <div class="text-muted">保存したレシピ</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-box">
+                                <div class="stat-number">
+                                    {% if subscription_info.remaining_uses == inf %}
+                                        ∞
+                                    {% else %}
+                                        {{ subscription_info.remaining_uses }}
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted">本日の残り利用回数</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if subscription_info.is_premium %}
+                        <div class="alert alert-success mt-4">
+                            <i class="fas fa-check-circle"></i> プレミアム会員として無制限でご利用いただけます。
+                            {% if subscription_info.end_date %}
+                                <br>有効期限: {{ subscription_info.end_date.strftime('%Y年%m月%d日') }}
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning mt-4">
+                            <i class="fas fa-info-circle"></i> 無料会員は1日5回まで利用できます。
+                            <br>プレミアム会員になると無制限で利用できます。
+                        </div>
+                        <div class="text-center mt-3">
+                            <a href="{{ url_for('payment.pricing') }}" class="btn btn-upgrade btn-lg">
+                                <i class="fas fa-crown"></i> プレミアム会員になる
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('upload_file') }}" class="btn btn-secondary">
+                        <i class="fas fa-home"></i> ホームに戻る
+                    </a>
+                    <a href="{{ url_for('auth.saved_recipes') }}" class="btn btn-primary">
+                        <i class="fas fa-heart"></i> 保存したレシピを見る
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

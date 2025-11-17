@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>料金プラン - 野菜認識アプリ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: #f5f7fa;
+            padding: 60px 0;
+        }
+        .pricing-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            text-align: center;
+            transition: transform 0.3s;
+            height: 100%;
+        }
+        .pricing-card:hover {
+            transform: translateY(-10px);
+        }
+        .pricing-card.featured {
+            border: 3px solid #667eea;
+            position: relative;
+        }
+        .featured-badge {
+            position: absolute;
+            top: -15px;
+            right: 20px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 5px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        .price {
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 20px 0;
+        }
+        .price-period {
+            font-size: 18px;
+            color: #6c757d;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 30px 0;
+        }
+        .feature-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        .btn-subscribe {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 30px;
+            transition: all 0.3s;
+        }
+        .btn-subscribe:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .free-plan {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="text-center mb-5">
+            <h1 class="display-4 mb-3">料金プラン</h1>
+            <p class="lead text-muted">あなたに最適なプランをお選びください</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row g-4">
+            <!-- 無料プラン -->
+            <div class="col-lg-4">
+                <div class="pricing-card free-plan">
+                    <h3>無料プラン</h3>
+                    <div class="price">¥0</div>
+                    <div class="price-period">永久無料</div>
+
+                    <ul class="feature-list">
+                        <li><i class="fas fa-check text-success"></i> 1日5回まで利用可能</li>
+                        <li><i class="fas fa-check text-success"></i> 野菜認識機能</li>
+                        <li><i class="fas fa-check text-success"></i> レシピ推薦</li>
+                        <li><i class="fas fa-times text-danger"></i> レシピ保存機能</li>
+                        <li><i class="fas fa-times text-danger"></i> 広告なし</li>
+                    </ul>
+
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-outline-secondary">
+                        無料で始める
+                    </a>
+                </div>
+            </div>
+
+            <!-- 月額プラン -->
+            <div class="col-lg-4">
+                <div class="pricing-card">
+                    <h3>{{ pricing.monthly.name }}</h3>
+                    <div class="price">¥{{ pricing.monthly.price }}</div>
+                    <div class="price-period">/月</div>
+
+                    <ul class="feature-list">
+                        {% for feature in pricing.monthly.features %}
+                            <li><i class="fas fa-check text-success"></i> {{ feature }}</li>
+                        {% endfor %}
+                    </ul>
+
+                    {% if current_user.is_authenticated %}
+                        <form method="POST" action="{{ url_for('payment.create_checkout_session') }}">
+                            <input type="hidden" name="plan_type" value="monthly">
+                            <button type="submit" class="btn btn-subscribe">
+                                今すぐ始める
+                            </button>
+                        </form>
+                    {% else %}
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-subscribe">
+                            ログインして始める
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 年額プラン（おすすめ） -->
+            <div class="col-lg-4">
+                <div class="pricing-card featured">
+                    <span class="featured-badge"><i class="fas fa-star"></i> おすすめ</span>
+                    <h3>{{ pricing.yearly.name }}</h3>
+                    <div class="price">¥{{ pricing.yearly.price }}</div>
+                    <div class="price-period">/年</div>
+                    <div class="text-success mb-3">
+                        <small>月額プランより¥{{ (pricing.monthly.price * 12) - pricing.yearly.price }}お得！</small>
+                    </div>
+
+                    <ul class="feature-list">
+                        {% for feature in pricing.yearly.features %}
+                            <li><i class="fas fa-check text-success"></i> {{ feature }}</li>
+                        {% endfor %}
+                    </ul>
+
+                    {% if current_user.is_authenticated %}
+                        <form method="POST" action="{{ url_for('payment.create_checkout_session') }}">
+                            <input type="hidden" name="plan_type" value="yearly">
+                            <button type="submit" class="btn btn-subscribe">
+                                今すぐ始める
+                            </button>
+                        </form>
+                    {% else %}
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-subscribe">
+                            ログインして始める
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-5">
+            <a href="{{ url_for('upload_file') }}" class="btn btn-link">
+                <i class="fas fa-arrow-left"></i> トップページに戻る
+            </a>
+        </div>
+
+        <div class="mt-5 p-4 bg-light rounded">
+            <h4 class="text-center mb-4">よくある質問</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6><i class="fas fa-question-circle text-primary"></i> プランはいつでも変更できますか？</h6>
+                    <p class="text-muted">はい、いつでもプランの変更が可能です。</p>
+                </div>
+                <div class="col-md-6">
+                    <h6><i class="fas fa-question-circle text-primary"></i> 解約はできますか？</h6>
+                    <p class="text-muted">はい、いつでも解約できます。解約後も期間満了まで利用可能です。</p>
+                </div>
+                <div class="col-md-6">
+                    <h6><i class="fas fa-question-circle text-primary"></i> 支払い方法は？</h6>
+                    <p class="text-muted">クレジットカード（Visa、Mastercard、JCBなど）に対応しています。</p>
+                </div>
+                <div class="col-md-6">
+                    <h6><i class="fas fa-question-circle text-primary"></i> 無料プランから始められますか？</h6>
+                    <p class="text-muted">はい、まずは無料プランでお試しいただけます。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
